@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>November Knockout Leaderboard</title>
+<style>
+  :root {
+    --gold:#e4b229;
+    --deep-blue:#0a2142;
+    --mid-blue:#0e3769;
+  }
+
+  body {
+    margin:0;
+    font-family:'Inter',system-ui,Segoe UI,Roboto,Arial,sans-serif;
+    min-height:100vh;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    color:#fff;
+    /* Blue gradient with diagonal line pattern */
+    background:
+      repeating-linear-gradient(
+        -45deg,
+        rgba(255,255,255,0.05) 0px,
+        rgba(255,255,255,0.05) 2px,
+        transparent 2px,
+        transparent 12px
+      ),
+      linear-gradient(180deg, var(--mid-blue) 0%, var(--deep-blue) 100%);
+    background-attachment:fixed;
+  }
+
+  .board {
+    background:#0e2f53;
+    border-radius:16px;
+    padding:24px 32px;
+    box-shadow:0 10px 30px rgba(0,0,0,0.4);
+    width:90%;
+    max-width:900px;
+  }
+
+  .title {
+    text-transform:uppercase;
+    font-size:42px;
+    color:var(--gold);
+    font-weight:900;
+    text-align:center;
+    letter-spacing:2px;
+  }
+
+  .subtitle {
+    text-align:center;
+    text-transform:uppercase;
+    font-size:18px;
+    margin-bottom:24px;
+    opacity:0.85;
+  }
+
+  table {
+    width:100%;
+    border-collapse:separate;
+    border-spacing:0;
+    background:#fff;
+    border-radius:12px;
+    overflow:hidden;
+  }
+
+  colgroup col:last-child { width:160px; }
+
+  thead th {
+    text-align:left;
+    background:#0b2647;
+    color:#fff;
+    padding:14px 16px;
+    text-transform:uppercase;
+    font-size:14px;
+    font-weight:800;
+  }
+
+  thead th:last-child { text-align:right; }
+
+  tbody td {
+    padding:18px 16px;
+    font-size:22px;
+    color:#0a1f36;
+    font-weight:800;
+    vertical-align:middle;
+  }
+
+  tbody td:last-child { text-align:right; }
+
+  tbody tr:nth-of-type(even) { background:#f6f8fa; }
+
+  .team {
+    display:flex;
+    align-items:center;
+    gap:16px;
+  }
+
+  .team img {
+    width:64px;
+    height:64px;
+    object-fit:contain;
+    border-radius:10px;
+    background:#f8fafc;
+    padding:6px;
+    box-shadow:inset 0 0 0 2px #fff, 0 0 0 1px #e7edf5;
+  }
+
+  /* progress bar (optional) */
+  .barWrap { margin-top:6px; height:8px; background:#eef3f9; border-radius:999px; overflow:hidden; }
+  .bar { height:100%; width:0%; background:linear-gradient(90deg, #1e6bd6, #39b9ff); transition:width .6s ease; }
+
+  /* gold divider between rank 2 and 3 */
+  .after-divider td { border-top:4px solid var(--gold); }
+
+  @media (max-width:640px){
+    .title{font-size:34px}
+    tbody td{font-size:18px}
+    .team img{width:48px;height:48px}
+    colgroup col:last-child{width:120px}
+  }
+</style>
+</head>
+<body>
+  <div class="board">
+    <div class="title">NOVEMBER KNOCKOUT</div>
+    <div class="subtitle">LEADERBOARD AS ON 1-NOV-2025</div>
+
+    <table role="table" aria-label="Leaderboard">
+      <colgroup><col><col></colgroup>
+      <thead>
+        <tr>
+          <th>TEAM</th>
+          <th>% ACHIEVEMENT</th>
+        </tr>
+      </thead>
+      <tbody id="rows"></tbody>
+    </table>
+  </div>
+
+<script>
+  // --- Your data (edit percentages anytime) ---
+  const teams = [
+    { name: 'Capital Chargers', percent: 10, logo: 'https://i.postimg.cc/d0mhp9Lt/Capital-Chargers-Logo-with-Mosque-Emblem-1.png' },
+    { name: 'Desert Warriors',  percent: 8, logo: 'https://i.postimg.cc/rzXcqvPG/Desert-Warriors.png' },
+    { name: 'ENBD Eagles',      percent: 6, logo: 'https://i.postimg.cc/gJxnjbgL/ENBD-Eagles-Logo-Design.png' },
+    { name: 'TwinForce',        percent: 4, logo: 'https://i.postimg.cc/2ST6xStP/Twin-Force.png' }
+  ];
+
+  // --- Sort descending by % ---
+  const sorted = [...teams].sort((a,b)=>b.percent - a.percent || a.name.localeCompare(b.name));
+
+  // --- Divider logic between rank 2 and 3 ---
+  const cutRankIndex = 1;
+  const cutPercent = sorted[cutRankIndex]?.percent ?? null;
+  let dividerAfterIndex = cutRankIndex;
+  for(let i=cutRankIndex+1;i<sorted.length;i++){
+    if(sorted[i].percent===cutPercent) dividerAfterIndex=i;
+    else break;
+  }
+  const borderRowIndex = dividerAfterIndex + 1;
+
+  // --- Render rows ---
+  const rows=document.getElementById('rows');
+  sorted.forEach((t,i)=>{
+    const tr=document.createElement('tr');
+    if(i===borderRowIndex && i<sorted.length) tr.classList.add('after-divider');
+    tr.innerHTML=`
+      <td>
+        <div class="team">
+          <img src="${t.logo}" alt="${t.name} logo">
+          <div>${t.name}
+            <div class="barWrap"><div class="bar" style="width:${Math.min(t.percent,100)}%"></div></div>
+          </div>
+        </div>
+      </td>
+      <td>${t.percent}%</td>`;
+    rows.appendChild(tr);
+  });
+</script>
+</body>
+</html>

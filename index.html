@@ -19,7 +19,7 @@
     justify-content:center;
     align-items:center;
     color:#fff;
-    /* Blue gradient with diagonal line pattern */
+    /* blue gradient + diagonal stripes */
     background:
       repeating-linear-gradient(
         -45deg,
@@ -35,10 +35,13 @@
   .board {
     background:#0e2f53;
     border-radius:16px;
-    padding:24px 32px;
+    padding:24px 32px 12px;
     box-shadow:0 10px 30px rgba(0,0,0,0.4);
     width:90%;
     max-width:900px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
   }
 
   .title {
@@ -109,12 +112,23 @@
     box-shadow:inset 0 0 0 2px #fff, 0 0 0 1px #e7edf5;
   }
 
-  /* progress bar (optional) */
+  /* progress bar (optional visual) */
   .barWrap { margin-top:6px; height:8px; background:#eef3f9; border-radius:999px; overflow:hidden; }
   .bar { height:100%; width:0%; background:linear-gradient(90deg, #1e6bd6, #39b9ff); transition:width .6s ease; }
 
   /* gold divider between rank 2 and 3 */
   .after-divider td { border-top:4px solid var(--gold); }
+
+  /* footer disclaimer */
+  .footer-note {
+    margin-top:18px;
+    color:#d4d8e0;
+    font-size:14px;
+    opacity:0.85;
+    text-align:center;
+    max-width:700px;
+    line-height:1.4;
+  }
 
   @media (max-width:640px){
     .title{font-size:34px}
@@ -127,7 +141,7 @@
 <body>
   <div class="board">
     <div class="title">NOVEMBER KNOCKOUT</div>
-    <div class="subtitle">LEADERBOARD AS ON 1-NOV-2025</div>
+    <div class="subtitle">LEADERBOARD AS ON 3-NOV-2025</div>
 
     <table role="table" aria-label="Leaderboard">
       <colgroup><col><col></colgroup>
@@ -139,15 +153,19 @@
       </thead>
       <tbody id="rows"></tbody>
     </table>
+
+    <div class="footer-note">
+      Note: The leaderboard is based on coordinators' MIS; final results will be reconciled at the end of phase 1.
+    </div>
   </div>
 
 <script>
   // --- Your data (edit percentages anytime) ---
   const teams = [
-    { name: 'Capital Chargers', percent: 10, logo: 'https://i.postimg.cc/d0mhp9Lt/Capital-Chargers-Logo-with-Mosque-Emblem-1.png' },
-    { name: 'Desert Warriors',  percent: 8, logo: 'https://i.postimg.cc/rzXcqvPG/Desert-Warriors.png' },
-    { name: 'ENBD Eagles',      percent: 6, logo: 'https://i.postimg.cc/gJxnjbgL/ENBD-Eagles-Logo-Design.png' },
-    { name: 'TwinForce',        percent: 4, logo: 'https://i.postimg.cc/2ST6xStP/Twin-Force.png' }
+    { name: 'Capital Chargers', percent: 2.3, logo: 'https://i.postimg.cc/d0mhp9Lt/Capital-Chargers-Logo-with-Mosque-Emblem-1.png' },
+    { name: 'Desert Warriors',  percent: 0.7, logo: 'https://i.postimg.cc/rzXcqvPG/Desert-Warriors.png' },
+    { name: 'ENBD Eagles',      percent: 1.5, logo: 'https://i.postimg.cc/gJxnjbgL/ENBD-Eagles-Logo-Design.png' },
+    { name: 'TwinForce',        percent: 4.9, logo: 'https://i.postimg.cc/2ST6xStP/Twin-Force.png' }
   ];
 
   // --- Sort descending by % ---

@@ -40,7 +40,10 @@
     height:min(70vh,720px) }
   .chartCard canvas{ width:100% !important; height:calc(100% - 64px) !important; display:block }
 
-  .legendBar{display:flex; gap:14px; align-items:center; justify-content:center; margin:2px 0 10px; flex-wrap:wrap}
+  .legendBar{
+    display:flex; gap:14px; align-items:center; justify-content:center;
+    margin:2px 0 10px; flex-wrap:wrap
+  }
   .legendItem{display:flex; align-items:center; gap:8px; padding:6px 10px; background:rgba(255,255,255,.08);
     border:1px solid rgba(255,255,255,.18); border-radius:999px; font-weight:700; font-size:13px}
   .legendSwatch{width:18px;height:4px;border-radius:2px}
@@ -62,6 +65,20 @@
   .after-divider td{border-top:4px solid var(--gold)!important}
 
   .footer-note{color:#d4d8e0;font-size:14px;opacity:.9;text-align:center;margin:18px auto 0;max-width:800px}
+
+  /* --------- Mobile tweaks --------- */
+  @media (max-width: 640px){
+    .wrap{padding:16px}
+    .title{font-size:28px; margin-bottom:2px}
+    .subtitle{font-size:13px}
+    .legendBar{justify-content:flex-start}
+    .legendItem{font-size:12px; padding:5px 8px}
+    .legendImg{width:18px;height:18px}
+    .legendSwatch{width:14px;height:3px}
+    .chartCard{height: 72vh}
+    .grid{grid-template-columns:1fr}
+    .team{font-size:16px}
+  }
 </style>
 </head>
 <body>
@@ -118,6 +135,7 @@ const data = {
 };
 
 const fmt = n => (Math.round(n*10)/10).toFixed(1) + '%';
+const isSmall = window.matchMedia('(max-width: 640px)').matches;
 
 /* ---- Legend ---- */
 function buildLegend(container, teamOrder, refs){
@@ -139,22 +157,21 @@ function buildLegend(container, teamOrder, refs){
   });
 }
 
-/* ---- Plugin: team end labels (right of dot) + single Daily Target label ---- */
+/* ---- Plugin: team end labels + single Daily Target label ---- */
 const endLabelPlugin = {
   id: 'endLabelPlugin',
 
-  // Draw team end labels
   afterDatasetsDraw(chart){
     const {ctx, chartArea} = chart;
     ctx.save();
-    ctx.font = '700 12px Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial';
+    ctx.font = (isSmall ? '700 10px' : '700 12px') + ' Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial';
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
 
     const nudge = { 'Capital Chargers':-8, 'Desert Warriors':8, 'ENBD Eagles':-2, 'Twin Force':2 };
 
     chart.data.datasets.forEach(ds => {
-      if (ds.yAxisID !== 'yData') return;        // only the team datasets
+      if (ds.yAxisID !== 'yData') return;
       const meta = chart.getDatasetMeta(chart.data.datasets.indexOf(ds));
       for (let j = ds.data.length - 1; j >= 0; j--) {
         const val = ds.data[j];
@@ -163,7 +180,7 @@ const endLabelPlugin = {
         if (!pt) continue;
 
         const label = fmt(val);
-        let x = pt.x + 8;
+        let x = pt.x + (isSmall ? 6 : 8);
         let y = pt.y + (nudge[ds.label] ?? 0);
 
         const w = ctx.measureText(label).width;
@@ -182,7 +199,6 @@ const endLabelPlugin = {
     ctx.restore();
   },
 
-  // Draw the Daily Target label ONCE (after everything)
   afterDraw(chart){
     const {ctx, chartArea, scales} = chart;
     const daily = chart.data.datasets.find(d => d.label.startsWith('Daily Target'));
@@ -193,7 +209,7 @@ const endLabelPlugin = {
     const text = (Math.round(yVal*100)/100).toFixed(2) + '%';
 
     ctx.save();
-    ctx.font = '700 12px Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial';
+    ctx.font = (isSmall ? '700 10px' : '700 12px') + ' Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial';
     ctx.textAlign = 'right';
     ctx.textBaseline = 'middle';
 
@@ -212,7 +228,6 @@ const endLabelPlugin = {
 /* ---- Chart ---- */
 (function renderChart(){
   const teams = ['Capital Chargers','Desert Warriors','ENBD Eagles','Twin Force'];
-
   const days   = Array.from({length:30}, (_,i)=>i+1);
   const labels = days.map(d => `Nov ${d}`);
 
@@ -226,19 +241,21 @@ const endLabelPlugin = {
     pointBackgroundColor: COLORS[team],
     pointBorderColor: COLORS[team],
     backgroundColor: COLORS[team],
-    borderWidth: 3.5, tension: .25, pointRadius: 3.5, spanGaps: false, yAxisID: 'yData'
+    borderWidth: isSmall ? 2.2 : 3.5,
+    tension:.25,
+    pointRadius: isSmall ? 2.2 : 3.5,
+    spanGaps:false,
+    yAxisID:'yData'
   }));
 
-  // November Daily Target (% of month elapsed)
+  // Daily Target (% of month elapsed)
   const now = new Date();
   const isNov2025 = (now.getFullYear()===2025 && now.getMonth()===10);
   const todayDay = Math.min(30, Math.max(1, isNov2025 ? now.getDate() : 1));
   const dailyTargetPct = +(todayDay / 30 * 100).toFixed(2);
 
   const maxTeam = Math.max(...datasets.flatMap(ds => ds.data.filter(v => v != null)), 0);
-  const yMax = (maxTeam <= dailyTargetPct)
-    ? dailyTargetPct
-    : Math.min(100, Math.ceil((maxTeam + 0.5) * 10) / 10);
+  const yMax = (maxTeam <= dailyTargetPct) ? dailyTargetPct : Math.min(100, Math.ceil((maxTeam + 0.5) * 10) / 10);
 
   // Reference lines
   datasets.push(
@@ -260,18 +277,27 @@ const endLabelPlugin = {
         yData: {
           position: 'left', min: 0, max: yMax,
           grid: { color: 'rgba(255,255,255,0.12)' },
-          ticks: { callback: v => v + '%' },
-          title: { display: true, text: '% Achievement (Teams)' }
+          ticks: {
+            callback: v => v + '%',
+            font: { size: isSmall ? 10 : 12 }
+          },
+          title: { display: !isSmall, text: '% Achievement (Teams)' }
         },
         yRef: {
           position: 'right', min: 0, max: 100,
           grid: { display: false },
-          ticks: { callback: v => v + '%' },
-          title: { display: true, text: 'Reference (0–100%)' }
+          ticks: { callback: v => v + '%', font: { size: isSmall ? 10 : 12 } },
+          title: { display: !isSmall, text: 'Reference (0–100%)' },
+          display: !isSmall   /* hide the right axis on phones */
         },
         x: {
           grid: { color: 'rgba(255,255,255,0.06)' },
-          ticks: { autoSkip: true, maxTicksLimit: 15, maxRotation: 0, minRotation: 0 },
+          ticks: {
+            autoSkip: true,
+            maxTicksLimit: isSmall ? 6 : 15,
+            maxRotation: 0, minRotation: 0,
+            font: { size: isSmall ? 10 : 12 }
+          },
           title: { display: true, text: 'Date' }
         }
       },
@@ -279,6 +305,7 @@ const endLabelPlugin = {
         legend: { display: false },
         tooltip: {
           filter: c => c.raw !== null && c.raw !== undefined,
+          bodyFont: { size: isSmall ? 11 : 12 },
           callbacks: { label: c => `${c.dataset.label}: ${fmt(c.parsed.y||0)}` }
         }
       },
@@ -312,7 +339,6 @@ const endLabelPlugin = {
     let idx = cut; for(let i=cut+1;i<rows.length;i++){ if(rows[i].percent===rows[cut].percent) idx=i; else break; }
     return idx+1;
   }
-
   const fmtPct = v => (Math.round(v*10)/10).toFixed(1)+'%';
 
   visibleDays.forEach(d=>{

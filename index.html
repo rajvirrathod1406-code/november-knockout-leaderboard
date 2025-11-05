@@ -46,7 +46,22 @@
     backdrop-filter:saturate(120%) blur(4px);
     height: min(70vh, 720px);
   }
-  .chartCard canvas{ width:100% !important; height:100% !important; display:block; }
+  .chartCard canvas{ width:100% !important; height:calc(100% - 64px) !important; display:block; }
+
+  /* Custom legend (logo + name for teams; swatch + text for refs) */
+  .legendBar{
+    display:flex; gap:14px; align-items:center; justify-content:center;
+    margin:2px 0 10px;
+    flex-wrap:wrap;
+  }
+  .legendItem{
+    display:flex; align-items:center; gap:8px; padding:6px 10px;
+    background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.18); border-radius:999px;
+    font-weight:700; font-size:13px;
+  }
+  .legendSwatch{width:18px;height:4px;border-radius:2px}
+  .legendImg{width:22px;height:22px;object-fit:contain;border-radius:4px;background:#fff;padding:2px;box-shadow:0 0 0 1px rgba(0,0,0,.08) inset}
+  .legendText{line-height:1}
 
   /* Results grid */
   .grid{ display:grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap:22px; align-items:start; }
@@ -83,6 +98,7 @@
     <!-- Overview: big chart -->
     <section id="panel-overview" class="panel active" role="tabpanel" aria-labelledby="tab-overview">
       <div class="chartCard">
+        <div id="customLegend" class="legendBar" aria-label="Legend"></div>
         <canvas id="progressChart"></canvas>
       </div>
     </section>
@@ -108,32 +124,25 @@ const LOGO={
   'TwinForce':'https://i.postimg.cc/2ST6xStP/Twin-Force.png'
 };
 
-/* ---------- Your data (only dates you need) ---------- */
+/* Bright, high-contrast colors for lines */
+const COLORS={
+  'Capital Chargers':'#4FC3F7',   // cyan
+  'Desert Warriors':'#FF6F91',    // pink
+  'ENBD Eagles':'#FFD166',        // amber
+  'TwinForce':'#7CF07C'           // light green
+};
+const REF_TARGET   = '#7fd3de';   // Target (100%)
+const REF_TIME     = '#b28bff';   // Daily Target (time elapsed)
+
+/* ---------- Your data (edit daily) ---------- */
 const data = {
   3:{'Capital Chargers':2.3,'Desert Warriors':0.7,'ENBD Eagles':1.5,'TwinForce':4.9},
   4:{'Capital Chargers':3.2,'Desert Warriors':4.1,'ENBD Eagles':4.4,'TwinForce':7.2},
   5:{'Capital Chargers':7.7,'Desert Warriors':7.5,'ENBD Eagles':4.7,'TwinForce':10.5},
   6:{'Capital Chargers':0,'Desert Warriors':0,'ENBD Eagles':0,'TwinForce':0},
   7:{'Capital Chargers':0,'Desert Warriors':0,'ENBD Eagles':0,'TwinForce':0},
-  8:{'Capital Chargers':0,'Desert Warriors':0,'ENBD Eagles':0,'TwinForce':0},
-  10:{'Capital Chargers':0,'Desert Warriors':0,'ENBD Eagles':0,'TwinForce':0},
-  11:{'Capital Chargers':0,'Desert Warriors':0,'ENBD Eagles':0,'TwinForce':0},
-  12:{'Capital Chargers':0,'Desert Warriors':0,'ENBD Eagles':0,'TwinForce':0},
-  13:{'Capital Chargers':0,'Desert Warriors':0,'ENBD Eagles':0,'TwinForce':0},
-  14:{'Capital Chargers':0,'Desert Warriors':0,'ENBD Eagles':0,'TwinForce':0},
-  15:{'Capital Chargers':0,'Desert Warriors':0,'ENBD Eagles':0,'TwinForce':0},
-  17:{'Capital Chargers':0,'Desert Warriors':0,'ENBD Eagles':0,'TwinForce':0},
-  18:{'Capital Chargers':0,'Desert Warriors':0,'ENBD Eagles':0,'TwinForce':0},
-  19:{'Capital Chargers':0,'Desert Warriors':0,'ENBD Eagles':0,'TwinForce':0},
-  20:{'Capital Chargers':0,'Desert Warriors':0,'ENBD Eagles':0,'TwinForce':0},
-  21:{'Capital Chargers':0,'Desert Warriors':0,'ENBD Eagles':0,'TwinForce':0},
-  22:{'Capital Chargers':0,'Desert Warriors':0,'ENBD Eagles':0,'TwinForce':0},
-  24:{'Capital Chargers':0,'Desert Warriors':0,'ENBD Eagles':0,'TwinForce':0},
-  25:{'Capital Chargers':0,'Desert Warriors':0,'ENBD Eagles':0,'TwinForce':0},
-  26:{'Capital Chargers':0,'Desert Warriors':0,'ENBD Eagles':0,'TwinForce':0},
-  27:{'Capital Chargers':0,'Desert Warriors':0,'ENBD Eagles':0,'TwinForce':0},
-  28:{'Capital Chargers':0,'Desert Warriors':0,'ENBD Eagles':0,'TwinForce':0},
-  29:{'Capital Chargers':0,'Desert Warriors':0,'ENBD Eagles':0,'TwinForce':0}
+  8:{'Capital Chargers':0,'Desert Warriors':0,'ENBD Eagles':0,'TwinForce':0}
+  // ...add more days as you go
 };
 
 /* ---------- Helpers ---------- */
@@ -154,62 +163,107 @@ function dividerAfterIndex(sorted){
 const visibleDays = Object.keys(data).map(Number).sort((a,b)=>a-b)
   .filter(d => sortEntries(data[d]).some(r => r.percent !== 0));
 
-/* ---------- CHART: fixed X axis Nov 1..30; plot only filled days ---------- */
+/* ---------- Build custom legend: teams (logo+name) + refs (swatch+name) ---------- */
+function buildLegend(container, teamOrder, refs){
+  container.innerHTML = '';
+  teamOrder.forEach(team=>{
+    const color = COLORS[team];
+    const item = document.createElement('div');
+    item.className = 'legendItem';
+    item.innerHTML = `
+      <img class="legendImg" src="${LOGO[team]}" alt="${team} logo" />
+      <span class="legendText">${team}</span>
+      <span class="legendSwatch" style="background:${color}"></span>
+    `;
+    container.appendChild(item);
+  });
+  refs.forEach(({label,color})=>{
+    const item = document.createElement('div');
+    item.className = 'legendItem';
+    item.innerHTML = `
+      <span class="legendText">${label}</span>
+      <span class="legendSwatch" style="background:${color}"></span>
+    `;
+    container.appendChild(item);
+  });
+}
+
+/* ---------- CHART: fixed X axis; Daily Target caps left Y axis ---------- */
 (function renderChart(){
   const teams = ['Capital Chargers','Desert Warriors','ENBD Eagles','TwinForce'];
 
   // Full month labels: Nov 1..30
-  const fullDays = Array.from({length: 30}, (_, i) => i + 1);
-  const labels = fullDays.map(d => `Nov ${d}`);
+  const days = Array.from({length: 30}, (_, i) => i + 1);
+  const labels = days.map(d => `Nov ${d}`);
 
-  // For each team, show value or null (null = gap; 0 treated as "no progress" => gap)
-  const teamSeries = teams.map(team => ({
+  // Team datasets: value or null (0 treated as gap)
+  const datasets = teams.map(team => ({
     label: team,
-    data: fullDays.map(d => {
+    data: days.map(d => {
       const v = (data[d] && typeof data[d][team] === 'number') ? data[d][team] : null;
       return v === 0 ? null : v;
     }),
+    borderColor: COLORS[team],
+    pointBackgroundColor: COLORS[team],
+    pointBorderColor: COLORS[team],
+    backgroundColor: COLORS[team],
+    borderWidth: 3.5,
+    tension: 0.25,
+    pointRadius: 3.5,
+    spanGaps: false,
+    yAxisID: 'yData'
   }));
 
-  // Time elapsed = (today / 30) * 100 (clamped)
+  // Today's daily target = time elapsed (% of month)
   const now = new Date();
   const isNov2025 = (now.getFullYear()===2025 && now.getMonth()===10);
   const todayDay = Math.min(30, Math.max(1, isNov2025 ? now.getDate() : 1));
-  const timeElapsedPct = +(todayDay / 30 * 100).toFixed(2);
+  const dailyTargetPct = +(todayDay / 30 * 100).toFixed(2);
+
+  // Left Y max = daily target, unless exceeded (then add headroom)
+  const maxVal = Math.max(...datasets.flatMap(ds => ds.data.filter(v => v != null)), 0);
+  let yMax = dailyTargetPct;
+  if (maxVal > dailyTargetPct) yMax = Math.min(100, Math.ceil(maxVal * 1.1));
+
+  // Reference lines
+  datasets.push(
+    { label:'Target (100%)', data: days.map(()=>100), borderColor: REF_TARGET,
+      borderWidth: 2, borderDash:[6,6], pointRadius:0, yAxisID:'yRef' },
+    { label:`Daily Target (${dailyTargetPct}%)`, data: days.map(()=>dailyTargetPct),
+      borderColor: REF_TIME, borderWidth: 2, borderDash:[2,4], pointRadius:0, yAxisID:'yData' }
+  );
 
   const ctx = document.getElementById('progressChart').getContext('2d');
   new Chart(ctx, {
     type: 'line',
-    data: {
-      labels,
-      datasets: [
-        { label: teamSeries[0].label, data: teamSeries[0].data, borderWidth: 3, tension: .25, pointRadius: 2, spanGaps: false },
-        { label: teamSeries[1].label, data: teamSeries[1].data, borderWidth: 3, tension: .25, pointRadius: 2, spanGaps: false },
-        { label: teamSeries[2].label, data: teamSeries[2].data, borderWidth: 3, tension: .25, pointRadius: 2, spanGaps: false },
-        { label: teamSeries[3].label, data: teamSeries[3].data, borderWidth: 3, tension: .25, pointRadius: 2, spanGaps: false },
-        { label: 'Target (100%)', data: fullDays.map(()=>100), borderWidth: 2, borderDash: [6,6], pointRadius: 0 },
-        { label: `Time Elapsed (${timeElapsedPct}%)`, data: fullDays.map(()=>timeElapsedPct), borderWidth: 2, borderDash: [2,4], pointRadius: 0 }
-      ]
-    },
+    data: { labels, datasets },
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      layout: { padding: { left: 8, right: 8, top: 8, bottom: 6 } },
+      layout: { padding: { left: 8, right: 8, top: 0, bottom: 6 } },
       scales: {
-        y: {
-          title: { display: true, text: '% Achievement' },
-          min: 0, max: 100,
+        yData: {
+          position:'left',
+          title: { display: true, text: '% Achievement (Teams)' },
+          min: 0, max: yMax,
           grid: { color: 'rgba(255,255,255,0.12)' },
+          ticks: { callback: v => v + '%' }
+        },
+        yRef: {
+          position:'right',
+          title: { display: true, text: 'Reference (0–100%)' },
+          min: 0, max: 100,
+          grid: { display:false },
           ticks: { callback: v => v + '%' }
         },
         x: {
           title: { display: true, text: 'Date' },
           grid: { color: 'rgba(255,255,255,0.06)' },
-          ticks: { autoSkip: true, maxTicksLimit: 15, maxRotation: 0, minRotation: 0 }
+          ticks: { autoSkip: true, maxTicksLimit: 15, maxRotation:0, minRotation:0 }
         }
       },
       plugins: {
-        legend: { position: 'top', labels: { boxWidth: 18 } },
+        legend: { display:false },
         tooltip: {
           filter: (ctx) => ctx.raw !== null && ctx.raw !== undefined,
           callbacks: { label: (ctx) => `${ctx.dataset.label}: ${fmt(ctx.parsed.y||0)}` }
@@ -218,6 +272,16 @@ const visibleDays = Object.keys(data).map(Number).sort((a,b)=>a-b)
       elements: { line: { fill: false } }
     }
   });
+
+  // Build legend (teams + refs)
+  buildLegend(
+    document.getElementById('customLegend'),
+    teams,
+    [
+      {label:'Target (100%)', color: REF_TARGET},
+      {label:`Daily Target (${dailyTargetPct}%)`, color: REF_TIME}
+    ]
+  );
 })();
 
 /* ---------- RESULTS: cards (only non-zero days) ---------- */

@@ -134,70 +134,66 @@ function buildLegend(container, teamOrder, refs){
   });
 }
 
-/* -------- Plugin: End labels centered under the last dot + single Daily Target label -------- */
+/* --- Plugin: end labels right of the dot + one Daily Target label --- */
 const endLabelPlugin = {
   id: 'endLabelPlugin',
   afterDatasetsDraw(chart){
-    const {ctx, chartArea, scales} = chart;
+    const {ctx, chartArea} = chart;
     ctx.save();
     ctx.font = '700 12px Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'bottom';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
 
-    // 1) Collect last points for TEAM datasets only
-    const teamNames = ['Capital Chargers','Desert Warriors','ENBD Eagles','TwinForce'];
-    const points = [];
+    // tiny vertical nudges per team to reduce collisions (up/down a few px)
+    const nudge = {
+      'Capital Chargers': -8,
+      'Desert Warriors':   8,
+      'ENBD Eagles':      -2,
+      'TwinForce':         2
+    };
+
     chart.data.datasets.forEach((ds, i) => {
-      if (!teamNames.includes(ds.label)) return; // exclude references
+      // annotate only team lines (exclude refs by yAxisID)
+      if (ds.yAxisID !== 'yData') return;
       const meta = chart.getDatasetMeta(i);
       for (let j = ds.data.length - 1; j >= 0; j--) {
-        const v = ds.data[j];
-        if (v == null) continue;
+        const val = ds.data[j];
+        if (val == null) continue;
         const pt = meta.data[j];
         if (!pt) continue;
-        points.push({value:v, x:pt.x, y:pt.y, color:ds.borderColor});
+
+        const label = fmt(val);
+        let x = pt.x + 8;                 // to the right of the dot
+        let y = pt.y + (nudge[ds.label] ?? 0);
+
+        // keep text inside
+        const w = ctx.measureText(label).width;
+        if (x + w > chartArea.right - 4) x = chartArea.right - 4 - w;
+        if (y < chartArea.top + 6) y = chartArea.top + 6;
+        if (y > chartArea.bottom - 6) y = chartArea.bottom - 6;
+
+        // halo + text
+        ctx.lineWidth = 3.5;
+        ctx.strokeStyle = 'rgba(10,33,66,0.92)';
+        ctx.strokeText(label, x, y);
+        ctx.fillStyle = ds.borderColor || '#fff';
+        ctx.fillText(label, x, y);
         break;
       }
     });
 
-    // Sort by value desc so higher stays closer to the dot, lower stack farther below
-    points.sort((a,b)=>b.value - a.value);
-
-    // 2) Draw labels directly beneath the dot; stack with +spacing
-    const baseOffset = 10;   // start 10px below point
-    const spacing    = 12;   // 12px between labels when stacked
-    points.forEach((p, idx) => {
-      let x = p.x;
-      let y = p.y + baseOffset + idx*spacing;
-
-      // Clamp inside chart area
-      const w = ctx.measureText(fmt(p.value)).width;
-      if (x + w/2 > chartArea.right - 2) x = chartArea.right - 2 - w/2;
-      if (x - w/2 < chartArea.left + 2) x = chartArea.left + 2 + w/2;
-      if (y > chartArea.bottom - 2) y = chartArea.bottom - 2;
-
-      const text = fmt(p.value);
-      // halo
-      ctx.lineWidth = 3.5;
-      ctx.strokeStyle = 'rgba(10,33,66,0.9)';
-      ctx.strokeText(text, x, y);
-      // colored text
-      ctx.fillStyle = p.color;
-      ctx.fillText(text, x, y);
-    });
-
-    // 3) Single Daily Target label (right end of dashed line), not duplicated
+    // One Daily Target label at the right end
     const daily = chart.data.datasets.find(d => d.label.startsWith('Daily Target'));
     if (daily) {
+      const scales = chart.scales;
       const yVal = daily.data[0];
       const y = scales.yData.getPixelForValue(yVal);
       const text = fmt(yVal);
       const w = ctx.measureText(text).width;
-      let x = chartArea.right - 6 - w/2;
-      let yDraw = Math.min(chartArea.bottom - 6, Math.max(chartArea.top + 12, y - 6));
-      // halo
+      let x = chartArea.right - 6 - w;
+      let yDraw = Math.min(chartArea.bottom - 8, Math.max(chartArea.top + 8, y - 6));
       ctx.lineWidth = 3.5;
-      ctx.strokeStyle = 'rgba(10,33,66,0.9)';
+      ctx.strokeStyle = 'rgba(10,33,66,0.92)';
       ctx.strokeText(text, x, yDraw);
       ctx.fillStyle = REF_TIME;
       ctx.fillText(text, x, yDraw);
@@ -226,15 +222,17 @@ const endLabelPlugin = {
     borderWidth:3.5, tension:.25, pointRadius:3.5, spanGaps:false, yAxisID:'yData'
   }));
 
-  // Daily target (time elapsed in November)
+  // Daily target (time elapsed in November) — use this as Y max if higher than teams
   const now = new Date();
   const isNov2025 = (now.getFullYear()===2025 && now.getMonth()===10);
   const todayDay = Math.min(30, Math.max(1, isNov2025 ? now.getDate() : 1));
   const dailyTargetPct = +(todayDay/30*100).toFixed(2);
 
-  // Y max with a bit of headroom so dashed line & label never clip
-  const maxVal = Math.max(...datasets.flatMap(ds => ds.data.filter(v => v != null)), 0, dailyTargetPct);
-  const yMax = Math.min(100, Math.ceil((maxVal + 1.5) * 10) / 10);
+  const maxTeam = Math.max(...datasets.flatMap(ds => ds.data.filter(v => v != null)), 0);
+  // If teams are below daily target, lock top to EXACT daily target; else give a small headroom
+  const yMax = (maxTeam <= dailyTargetPct)
+    ? dailyTargetPct
+    : Math.min(100, Math.ceil((maxTeam + 0.5) * 10) / 10);
 
   // Reference lines
   datasets.push(
@@ -280,7 +278,7 @@ const endLabelPlugin = {
   );
 })();
 
-/* -------- Results cards (unchanged) -------- */
+/* -------- Results (unchanged) -------- */
 (function renderCards(){
   const grid=document.getElementById('grid');
   const visibleDays = Object.keys(data).map(Number).sort((a,b)=>a-b)

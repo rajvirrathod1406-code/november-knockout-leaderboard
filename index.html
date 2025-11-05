@@ -5,7 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title>November Knockout — Dashboard</title>
 <style>
-  :root{ --gold:#e4b229; --deep:#0a2142; --mid:#0e3769; --ink:#0b1b32; --card:rgba(255,255,255,.06); --stroke:rgba(255,255,255,.18); }
+  :root{
+    --gold:#e4b229; --deep:#0a2142; --mid:#0e3769; --ink:#0b1b32;
+    --card:rgba(255,255,255,.06); --stroke:rgba(255,255,255,.18);
+  }
 
   html, body{
     height:100%; margin:0;
@@ -20,7 +23,8 @@
       repeating-linear-gradient(-45deg, rgba(255,255,255,.05) 0px, rgba(255,255,255,.05) 2px, transparent 2px, transparent 12px),
       linear-gradient(180deg, var(--mid) 0%, var(--deep) 100%);
   }
-  .wrap{max-width:1200px;margin:0 auto; padding:28px}
+
+  .wrap{max-width:1300px;margin:0 auto; padding:28px}
   .title{font-size:48px;font-weight:900;letter-spacing:.06em;text-transform:uppercase;color:var(--gold);text-align:center;margin:0 0 6px}
   .subtitle{opacity:.9;text-align:center;margin:0 0 18px}
 
@@ -32,29 +36,22 @@
   }
   .tab[aria-selected="true"]{ background:#163a6b; border-color:#1f4f91; font-weight:800 }
 
-  /* Cards & chart containers */
   .panel{ display:none }
   .panel.active{ display:block }
 
+  /* Big chart */
   .chartCard{
     background:var(--card); border:1px solid var(--stroke);
     border-radius:16px; padding:16px; margin-bottom:22px;
     backdrop-filter:saturate(120%) blur(4px);
+    height: min(70vh, 720px);
   }
+  .chartCard canvas{ width:100% !important; height:100% !important; display:block; }
 
-  .grid{
-    display:grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
-    gap:22px; align-items:start;
-  }
-  .box{
-    background:var(--card); border:1px solid var(--stroke);
-    border-radius:16px; padding:0; backdrop-filter:saturate(120%) blur(4px);
-  }
-  .box header{
-    padding:12px 16px; display:flex; justify-content:space-between; align-items:center;
-    border-bottom:1px solid rgba(255,255,255,.12); background:#0e325e;
-    border-top-left-radius:16px; border-top-right-radius:16px;
-  }
+  /* Results grid */
+  .grid{ display:grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap:22px; align-items:start; }
+  .box{ background:var(--card); border:1px solid var(--stroke); border-radius:16px; padding:0; backdrop-filter:saturate(120%) blur(4px); }
+  .box header{ padding:12px 16px; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid rgba(255,255,255,.12); background:#0e325e; border-top-left-radius:16px; border-top-right-radius:16px; }
   .date{font-weight:900;font-size:18px}
   .summary{color:#e7edf7;font-size:12px;opacity:.9}
 
@@ -62,7 +59,6 @@
   tbody td{padding:14px 16px;vertical-align:middle;border-top:1px solid #eef2f7}
   tbody tr:first-child td{border-top:none}
   tbody tr:nth-child(even){background:#f8fbff}
-
   .team{display:flex;align-items:center;gap:10px;font-weight:800;font-size:18px;color:var(--ink)}
   .team img{width:36px;height:36px;object-fit:contain;border-radius:8px;background:#f6f8fb;padding:4px;box-shadow:inset 0 0 0 2px #fff, 0 0 0 1px #e7edf5}
   .pct{font-weight:900;text-align:right;color:var(--ink);white-space:nowrap}
@@ -84,14 +80,14 @@
       <button class="tab" role="tab" id="tab-results" aria-controls="panel-results" aria-selected="false">Results</button>
     </div>
 
-    <!-- Overview: Chart -->
+    <!-- Overview: big chart -->
     <section id="panel-overview" class="panel active" role="tabpanel" aria-labelledby="tab-overview">
       <div class="chartCard">
-        <canvas id="progressChart" height="140"></canvas>
+        <canvas id="progressChart"></canvas>
       </div>
     </section>
 
-    <!-- Results: Date-wise cards -->
+    <!-- Results: date-wise cards -->
     <section id="panel-results" class="panel" role="tabpanel" aria-labelledby="tab-results">
       <div id="grid" class="grid"></div>
     </section>
@@ -112,7 +108,7 @@ const LOGO={
   'TwinForce':'https://i.postimg.cc/2ST6xStP/Twin-Force.png'
 };
 
-/* ---------- Your data (only the dates you want) ---------- */
+/* ---------- Your data (only dates you need) ---------- */
 const data = {
   3:{'Capital Chargers':2.3,'Desert Warriors':0.7,'ENBD Eagles':1.5,'TwinForce':4.9},
   4:{'Capital Chargers':3.2,'Desert Warriors':4.1,'ENBD Eagles':4.4,'TwinForce':7.2},
@@ -141,68 +137,90 @@ const data = {
 };
 
 /* ---------- Helpers ---------- */
-function fmt(n){ return (Math.round(n*10)/10).toFixed(1) + '%'; }
+const fmt = n => (Math.round(n*10)/10).toFixed(1) + '%';
 function sortEntries(obj){
-  return Object.entries(obj||{})
-    .map(([team,percent])=>({team,percent:+percent||0}))
+  return Object.entries(obj||{}).map(([team,percent])=>({team,percent:+percent||0}))
     .sort((a,b)=> b.percent - a.percent || a.team.localeCompare(b.team));
 }
 function dividerAfterIndex(sorted){
   if(!sorted.length) return 0;
-  const cut = Math.min(1, sorted.length-1); // after rank 2
+  const cut = Math.min(1, sorted.length-1);
   const val = sorted[cut]?.percent ?? null;
-  let idx = cut;
-  for(let i=cut+1;i<sorted.length;i++){ if(sorted[i].percent===val) idx=i; else break; }
+  let idx = cut; for(let i=cut+1;i<sorted.length;i++){ if(sorted[i].percent===val) idx=i; else break; }
   return idx + 1;
 }
 
-/* ---------- Visible days (any non-zero) ---------- */
+/* ---------- Visible days (any non-zero) for Results tab ---------- */
 const visibleDays = Object.keys(data).map(Number).sort((a,b)=>a-b)
   .filter(d => sortEntries(data[d]).some(r => r.percent !== 0));
 
-/* ---------- Chart (Overview tab) ---------- */
+/* ---------- CHART: fixed X axis Nov 1..30; plot only filled days ---------- */
 (function renderChart(){
   const teams = ['Capital Chargers','Desert Warriors','ENBD Eagles','TwinForce'];
-  const series = teams.map(team => ({
+
+  // Full month labels: Nov 1..30
+  const fullDays = Array.from({length: 30}, (_, i) => i + 1);
+  const labels = fullDays.map(d => `Nov ${d}`);
+
+  // For each team, show value or null (null = gap; 0 treated as "no progress" => gap)
+  const teamSeries = teams.map(team => ({
     label: team,
-    data: visibleDays.map(d => (data[d]?.[team] ?? 0))
+    data: fullDays.map(d => {
+      const v = (data[d] && typeof data[d][team] === 'number') ? data[d][team] : null;
+      return v === 0 ? null : v;
+    }),
   }));
-  // Time elapsed calc (today/30)
+
+  // Time elapsed = (today / 30) * 100 (clamped)
   const now = new Date();
-  let todayDay = (now.getFullYear()===2025 && now.getMonth()===10) ? now.getDate() : (visibleDays.at(-1) || 1);
-  todayDay = Math.min(30, Math.max(1, todayDay));
+  const isNov2025 = (now.getFullYear()===2025 && now.getMonth()===10);
+  const todayDay = Math.min(30, Math.max(1, isNov2025 ? now.getDate() : 1));
   const timeElapsedPct = +(todayDay / 30 * 100).toFixed(2);
 
   const ctx = document.getElementById('progressChart').getContext('2d');
   new Chart(ctx, {
     type: 'line',
     data: {
-      labels: visibleDays.map(d => `Nov ${d}`),
+      labels,
       datasets: [
-        { label: series[0].label, data: series[0].data, borderWidth: 3, tension: .25, pointRadius: 2 },
-        { label: series[1].label, data: series[1].data, borderWidth: 3, tension: .25, pointRadius: 2 },
-        { label: series[2].label, data: series[2].data, borderWidth: 3, tension: .25, pointRadius: 2 },
-        { label: series[3].label, data: series[3].data, borderWidth: 3, tension: .25, pointRadius: 2 },
-        { label: 'Target (100%)', data: visibleDays.map(()=>100), borderWidth: 2, borderDash: [6,6], pointRadius: 0 },
-        { label: `Time Elapsed (${timeElapsedPct}%)`, data: visibleDays.map(()=>timeElapsedPct), borderWidth: 2, borderDash: [2,4], pointRadius: 0 }
+        { label: teamSeries[0].label, data: teamSeries[0].data, borderWidth: 3, tension: .25, pointRadius: 2, spanGaps: false },
+        { label: teamSeries[1].label, data: teamSeries[1].data, borderWidth: 3, tension: .25, pointRadius: 2, spanGaps: false },
+        { label: teamSeries[2].label, data: teamSeries[2].data, borderWidth: 3, tension: .25, pointRadius: 2, spanGaps: false },
+        { label: teamSeries[3].label, data: teamSeries[3].data, borderWidth: 3, tension: .25, pointRadius: 2, spanGaps: false },
+        { label: 'Target (100%)', data: fullDays.map(()=>100), borderWidth: 2, borderDash: [6,6], pointRadius: 0 },
+        { label: `Time Elapsed (${timeElapsedPct}%)`, data: fullDays.map(()=>timeElapsedPct), borderWidth: 2, borderDash: [2,4], pointRadius: 0 }
       ]
     },
     options: {
-      responsive: true, maintainAspectRatio: false,
+      responsive: true,
+      maintainAspectRatio: false,
+      layout: { padding: { left: 8, right: 8, top: 8, bottom: 6 } },
       scales: {
-        y: { title: {display:true, text:'% Achievement'}, min:0, max:100, ticks:{ callback: v => v + '%' }},
-        x: { title: {display:true, text:'Date'} }
+        y: {
+          title: { display: true, text: '% Achievement' },
+          min: 0, max: 100,
+          grid: { color: 'rgba(255,255,255,0.12)' },
+          ticks: { callback: v => v + '%' }
+        },
+        x: {
+          title: { display: true, text: 'Date' },
+          grid: { color: 'rgba(255,255,255,0.06)' },
+          ticks: { autoSkip: true, maxTicksLimit: 15, maxRotation: 0, minRotation: 0 }
+        }
       },
       plugins: {
-        legend: { position: 'top' },
-        tooltip: { callbacks: { label: (ctx) => `${ctx.dataset.label}: ${fmt(ctx.parsed.y||0)}` } }
+        legend: { position: 'top', labels: { boxWidth: 18 } },
+        tooltip: {
+          filter: (ctx) => ctx.raw !== null && ctx.raw !== undefined,
+          callbacks: { label: (ctx) => `${ctx.dataset.label}: ${fmt(ctx.parsed.y||0)}` }
+        }
       },
-      elements: { line: { fill:false } }
+      elements: { line: { fill: false } }
     }
   });
 })();
 
-/* ---------- Results cards ---------- */
+/* ---------- RESULTS: cards (only non-zero days) ---------- */
 (function renderCards(){
   const grid=document.getElementById('grid');
   visibleDays.forEach(d=>{
@@ -235,7 +253,7 @@ const visibleDays = Object.keys(data).map(Number).sort((a,b)=>a-b)
   });
 })();
 
-/* ---------- Tab switching ---------- */
+/* ---------- Tabs ---------- */
 const tabs = document.querySelectorAll('.tab');
 const panels = document.querySelectorAll('.panel');
 tabs.forEach(tab=>{
@@ -244,7 +262,6 @@ tabs.forEach(tab=>{
     panels.forEach(p => p.classList.remove('active'));
     tab.setAttribute('aria-selected','true');
     document.getElementById(tab.getAttribute('aria-controls')).classList.add('active');
-    // Optionally scroll to top on switch:
     window.scrollTo({top:0, behavior:'smooth'});
   });
 });

@@ -7,34 +7,38 @@
 <style>
   :root{ --gold:#e4b229; --deep:#0a2142; --mid:#0e3769; --ink:#0b1b32; }
 
-  /* Force the blue gradient + diagonal lines */
   html, body{
-    height:100%;
-    margin:0;
-    font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
-    color:#fff;
+    height:100%; margin:0;
+    font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif; color:#fff;
     background:
       repeating-linear-gradient(-45deg, rgba(255,255,255,.05) 0px, rgba(255,255,255,.05) 2px, transparent 2px, transparent 12px),
       linear-gradient(180deg, var(--mid) 0%, var(--deep) 100%) !important;
     background-attachment:fixed, fixed !important;
   }
-  /* Backup background layer */
   .bg{position:fixed; inset:0; z-index:-1;
     background:
       repeating-linear-gradient(-45deg, rgba(255,255,255,.05) 0px, rgba(255,255,255,.05) 2px, transparent 2px, transparent 12px),
       linear-gradient(180deg, var(--mid) 0%, var(--deep) 100%);
   }
-
   .wrap{max-width:1200px;margin:0 auto; padding:28px}
-  .title{font-size:48px;font-weight:900;letter-spacing:.06em;text-transform:uppercase;color:var(--gold);text-align:center;margin:0 0 8px}
+  .title{font-size:48px;font-weight:900;letter-spacing:.06em;text-transform:uppercase;color:var(--gold);text-align:center;margin:0 0 6px}
   .subtitle{opacity:.9;text-align:center;margin:0 0 18px}
+
+  /* Chart card */
+  .chartCard{
+    background:rgba(255,255,255,.06);
+    border:1px solid rgba(255,255,255,.18);
+    border-radius:16px;
+    padding:16px;
+    margin-bottom:22px;
+    backdrop-filter:saturate(120%) blur(4px);
+  }
 
   .grid{
     display:grid;
     grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
     gap:22px;
   }
-
   .box{
     background:rgba(255,255,255,.06);
     border:1px solid rgba(255,255,255,.18);
@@ -42,7 +46,6 @@
     padding:14px;
     backdrop-filter:saturate(120%) blur(4px);
   }
-
   .box header{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px}
   .date{font-weight:900;font-size:18px}
   .summary{color:#e7edf7;font-size:12px}
@@ -54,7 +57,6 @@
 
   .team{display:flex;align-items:center;gap:10px;font-weight:800;font-size:18px;color:var(--ink)}
   .team img{width:36px;height:36px;object-fit:contain;border-radius:8px;background:#f6f8fb;padding:4px;box-shadow:inset 0 0 0 2px #fff, 0 0 0 1px #e7edf5}
-
   .pct{font-weight:900;text-align:right;color:var(--ink);white-space:nowrap}
   .after-divider td{border-top:4px solid var(--gold)!important}
 
@@ -68,6 +70,12 @@
     <div class="title">November Knockout</div>
     <div class="subtitle">Date-wise tracker for November 2025</div>
 
+    <!-- Chart -->
+    <div class="chartCard">
+      <canvas id="progressChart" height="120"></canvas>
+    </div>
+
+    <!-- Cards -->
     <div id="grid" class="grid"></div>
 
     <div class="footer-note">
@@ -75,6 +83,8 @@
     </div>
   </div>
 
+<!-- Chart.js CDN -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script>
 /* ---------- Logos ---------- */
 const LOGO={
@@ -112,7 +122,7 @@ const data = {
   29:{'Capital Chargers':0,'Desert Warriors':0,'ENBD Eagles':0,'TwinForce':0}
 };
 
-/* ---------- Rendering helpers ---------- */
+/* ---------- Helpers ---------- */
 function fmt(n){ return (Math.round(n*10)/10).toFixed(1) + '%'; }
 function sortEntries(obj){
   return Object.entries(obj||{})
@@ -121,22 +131,70 @@ function sortEntries(obj){
 }
 function dividerAfterIndex(sorted){
   if(!sorted.length) return 0;
-  const cut = Math.min(1, sorted.length-1); // after rank 2 (0-based)
+  const cut = Math.min(1, sorted.length-1);
   const val = sorted[cut]?.percent ?? null;
   let idx = cut;
   for(let i=cut+1;i<sorted.length;i++){ if(sorted[i].percent===val) idx=i; else break; }
-  return idx + 1; // first row of lower group gets border
+  return idx + 1;
 }
 
-/* ---------- Build the grid (only show days with any non-zero values) ---------- */
+/* ---------- Build list of visible days (any non-zero) ---------- */
+const visibleDays = Object.keys(data).map(Number).sort((a,b)=>a-b)
+  .filter(d => sortEntries(data[d]).some(r => r.percent !== 0));
+
+/* ---------- Chart data ---------- */
+const teams = ['Capital Chargers','Desert Warriors','ENBD Eagles','TwinForce'];
+const series = teams.map(team => ({
+  label: team,
+  data: visibleDays.map(d => (data[d]?.[team] ?? 0)),
+}));
+
+/* Time elapsed % (today/30). If not November 2025, we’ll use the max visible day. */
+const now = new Date();
+let todayDay = (now.getFullYear()===2025 && now.getMonth()===10) ? now.getDate() : (visibleDays.at(-1) || 1);
+todayDay = Math.min(30, Math.max(1, todayDay));
+const timeElapsedPct = +(todayDay / 30 * 100).toFixed(2);
+
+/* ---------- Render Chart ---------- */
+const ctx = document.getElementById('progressChart').getContext('2d');
+new Chart(ctx, {
+  type: 'line',
+  data: {
+    labels: visibleDays.map(d => `Nov ${d}`),
+    datasets: [
+      // teams
+      { label: series[0].label, data: series[0].data, borderWidth: 3, tension: 0.25, pointRadius: 3 },
+      { label: series[1].label, data: series[1].data, borderWidth: 3, tension: 0.25, pointRadius: 3 },
+      { label: series[2].label, data: series[2].data, borderWidth: 3, tension: 0.25, pointRadius: 3 },
+      { label: series[3].label, data: series[3].data, borderWidth: 3, tension: 0.25, pointRadius: 3 },
+      // target 100% line
+      { label: 'Target (100%)', data: visibleDays.map(()=>100), borderWidth: 2, borderDash: [6,6], pointRadius: 0 },
+      // time elapsed line
+      { label: `Time Elapsed (${timeElapsedPct}%)`, data: visibleDays.map(()=>timeElapsedPct), borderWidth: 2, borderDash: [2,4], pointRadius: 0 }
+    ]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    scales: {
+      y: {
+        title: { display: true, text: '% Achievement' },
+        min: 0, max: 100, ticks: { callback: v => v + '%' }
+      },
+      x: { title: { display: true, text: 'Date' } }
+    },
+    plugins: {
+      legend: { position: 'top' },
+      tooltip: { callbacks: { label: (ctx) => `${ctx.dataset.label}: ${fmt(ctx.parsed.y||0)}` } }
+    },
+    elements: { line: { fill: false } }
+  }
+});
+
+/* ---------- Cards (only visible days) ---------- */
 const grid=document.getElementById('grid');
-
-/* sort dates ascending; change to .sort((a,b)=>b-a) for latest-first */
-Object.keys(data).map(Number).sort((a,b)=>a-b).forEach(d=>{
+visibleDays.forEach(d=>{
   const rows = sortEntries(data[d]);
-  const allZero = rows.every(r => r.percent === 0);
-  if (allZero) return; // hide empty day
-
   const cutAt = dividerAfterIndex(rows);
   const top = rows[0] || {team:'', percent:0};
 

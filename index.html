@@ -188,6 +188,43 @@ function buildLegend(container, teamOrder, refs){
   });
 }
 
+/* ---------- Plugin: show number at the end of each team line ---------- */
+const endLabelPlugin = {
+  id: 'endLabelPlugin',
+  afterDatasetsDraw(chart) {
+    const {ctx} = chart;
+    ctx.save();
+    chart.data.datasets.forEach((ds, i) => {
+      // Only annotate team datasets (on left axis)
+      if (ds.yAxisID !== 'yData') return;
+      const meta = chart.getDatasetMeta(i);
+      // Find last non-null visible point
+      for (let j = ds.data.length - 1; j >= 0; j--) {
+        const val = ds.data[j];
+        if (val == null) continue;
+        const pt = meta.data[j];
+        if (!pt || pt.x == null || pt.y == null) continue;
+
+        const label = fmt(val);
+        const x = pt.x + 6;       // a bit to the right of the dot
+        const y = pt.y - 6;       // slightly above
+
+        // halo for readability
+        ctx.font = '700 12px Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial';
+        ctx.lineWidth = 3.5;
+        ctx.strokeStyle = 'rgba(10, 33, 66, 0.85)';
+        ctx.strokeText(label, x, y);
+
+        // text in the line color
+        ctx.fillStyle = ds.borderColor || '#fff';
+        ctx.fillText(label, x, y);
+        break;
+      }
+    });
+    ctx.restore();
+  }
+};
+
 /* ---------- CHART: fixed X axis; Daily Target caps left Y axis ---------- */
 (function renderChart(){
   const teams = ['Capital Chargers','Desert Warriors','ENBD Eagles','TwinForce'];
@@ -237,6 +274,7 @@ function buildLegend(container, teamOrder, refs){
   new Chart(ctx, {
     type: 'line',
     data: { labels, datasets },
+    plugins: [endLabelPlugin],   // <-- add plugin here
     options: {
       responsive: true,
       maintainAspectRatio: false,

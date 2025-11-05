@@ -1,203 +1,168 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>November Knockout Leaderboard</title>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>November Knockout — Date-wise Dashboard</title>
 <style>
-  :root {
-    --gold:#e4b229;
-    --deep-blue:#0a2142;
-    --mid-blue:#0e3769;
-  }
+  :root{ --gold:#e4b229; --deep:#0a2142; --mid:#0e3769; --ink:#0b1b32; }
 
-  body {
+  /* Force the blue gradient + diagonal lines */
+  html, body{
+    height:100%;
     margin:0;
-    font-family:'Inter',system-ui,Segoe UI,Roboto,Arial,sans-serif;
-    min-height:100vh;
-    display:flex;
-    justify-content:center;
-    align-items:center;
+    font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
     color:#fff;
-    /* blue gradient + diagonal stripes */
     background:
-      repeating-linear-gradient(
-        -45deg,
-        rgba(255,255,255,0.05) 0px,
-        rgba(255,255,255,0.05) 2px,
-        transparent 2px,
-        transparent 12px
-      ),
-      linear-gradient(180deg, var(--mid-blue) 0%, var(--deep-blue) 100%);
-    background-attachment:fixed;
+      repeating-linear-gradient(-45deg, rgba(255,255,255,.05) 0px, rgba(255,255,255,.05) 2px, transparent 2px, transparent 12px),
+      linear-gradient(180deg, var(--mid) 0%, var(--deep) 100%) !important;
+    background-attachment:fixed, fixed !important;
+  }
+  /* Backup background layer */
+  .bg{position:fixed; inset:0; z-index:-1;
+    background:
+      repeating-linear-gradient(-45deg, rgba(255,255,255,.05) 0px, rgba(255,255,255,.05) 2px, transparent 2px, transparent 12px),
+      linear-gradient(180deg, var(--mid) 0%, var(--deep) 100%);
   }
 
-  .board {
-    background:#0e2f53;
+  .wrap{max-width:1200px;margin:0 auto; padding:28px}
+  .title{font-size:48px;font-weight:900;letter-spacing:.06em;text-transform:uppercase;color:var(--gold);text-align:center;margin:0 0 8px}
+  .subtitle{opacity:.9;text-align:center;margin:0 0 18px}
+
+  .grid{
+    display:grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap:22px;
+  }
+
+  .box{
+    background:rgba(255,255,255,.06);
+    border:1px solid rgba(255,255,255,.18);
     border-radius:16px;
-    padding:24px 32px 12px;
-    box-shadow:0 10px 30px rgba(0,0,0,0.4);
-    width:90%;
-    max-width:900px;
-    display:flex;
-    flex-direction:column;
-    align-items:center;
+    padding:14px;
+    backdrop-filter:saturate(120%) blur(4px);
   }
 
-  .title {
-    text-transform:uppercase;
-    font-size:42px;
-    color:var(--gold);
-    font-weight:900;
-    text-align:center;
-    letter-spacing:2px;
-  }
+  .box header{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px}
+  .date{font-weight:900;font-size:18px}
+  .summary{color:#e7edf7;font-size:12px}
 
-  .subtitle {
-    text-align:center;
-    text-transform:uppercase;
-    font-size:18px;
-    margin-bottom:24px;
-    opacity:0.85;
-  }
+  table{width:100%;border-collapse:separate;border-spacing:0;background:#fff;border-radius:12px;overflow:hidden;border:1px solid #e6edf6}
+  tbody td{padding:12px 14px;vertical-align:middle;border-top:1px solid #eef2f7}
+  tbody tr:first-child td{border-top:none}
+  tbody tr:nth-child(even){background:#f8fbff}
 
-  table {
-    width:100%;
-    border-collapse:separate;
-    border-spacing:0;
-    background:#fff;
-    border-radius:12px;
-    overflow:hidden;
-  }
+  .team{display:flex;align-items:center;gap:10px;font-weight:800;font-size:18px;color:var(--ink)}
+  .team img{width:36px;height:36px;object-fit:contain;border-radius:8px;background:#f6f8fb;padding:4px;box-shadow:inset 0 0 0 2px #fff, 0 0 0 1px #e7edf5}
 
-  colgroup col:last-child { width:160px; }
+  .pct{font-weight:900;text-align:right;color:var(--ink);white-space:nowrap}
+  .after-divider td{border-top:4px solid var(--gold)!important}
 
-  thead th {
-    text-align:left;
-    background:#0b2647;
-    color:#fff;
-    padding:14px 16px;
-    text-transform:uppercase;
-    font-size:14px;
-    font-weight:800;
-  }
-
-  thead th:last-child { text-align:right; }
-
-  tbody td {
-    padding:18px 16px;
-    font-size:22px;
-    color:#0a1f36;
-    font-weight:800;
-    vertical-align:middle;
-  }
-
-  tbody td:last-child { text-align:right; }
-
-  tbody tr:nth-of-type(even) { background:#f6f8fa; }
-
-  .team {
-    display:flex;
-    align-items:center;
-    gap:16px;
-  }
-
-  .team img {
-    width:64px;
-    height:64px;
-    object-fit:contain;
-    border-radius:10px;
-    background:#f8fafc;
-    padding:6px;
-    box-shadow:inset 0 0 0 2px #fff, 0 0 0 1px #e7edf5;
-  }
-
-  /* progress bar (optional visual) */
-  .barWrap { margin-top:6px; height:8px; background:#eef3f9; border-radius:999px; overflow:hidden; }
-  .bar { height:100%; width:0%; background:linear-gradient(90deg, #1e6bd6, #39b9ff); transition:width .6s ease; }
-
-  /* gold divider between rank 2 and 3 */
-  .after-divider td { border-top:4px solid var(--gold); }
-
-  /* footer disclaimer */
-  .footer-note {
-    margin-top:18px;
-    color:#d4d8e0;
-    font-size:14px;
-    opacity:0.85;
-    text-align:center;
-    max-width:700px;
-    line-height:1.4;
-  }
-
-  @media (max-width:640px){
-    .title{font-size:34px}
-    tbody td{font-size:18px}
-    .team img{width:48px;height:48px}
-    colgroup col:last-child{width:120px}
-  }
+  .footer-note{color:#d4d8e0;font-size:14px;opacity:.9;text-align:center;margin:18px auto 0;max-width:800px}
 </style>
 </head>
 <body>
-  <div class="board">
-    <div class="title">NOVEMBER KNOCKOUT</div>
-    <div class="subtitle">LEADERBOARD AS ON 5-NOV-2025</div>
+  <div class="bg" aria-hidden="true"></div>
 
-    <table role="table" aria-label="Leaderboard">
-      <colgroup><col><col></colgroup>
-      <thead>
-        <tr>
-          <th>TEAM</th>
-          <th>% ACHIEVEMENT</th>
-        </tr>
-      </thead>
-      <tbody id="rows"></tbody>
-    </table>
+  <div class="wrap">
+    <div class="title">November Knockout</div>
+    <div class="subtitle">Date-wise tracker for November 2025</div>
+
+    <div id="grid" class="grid"></div>
 
     <div class="footer-note">
-      Note: The leaderboard is based on coordinators' MIS; final results will be reconciled at the end of phase 1.
+      Note: The figures are sourced from the coordinator's MIS; final results will be reconciled.
     </div>
   </div>
 
 <script>
-  // --- Your data (edit percentages anytime) ---
-  const teams = [
-    { name: 'Capital Chargers', percent: 7.7, logo: 'https://i.postimg.cc/d0mhp9Lt/Capital-Chargers-Logo-with-Mosque-Emblem-1.png' },
-    { name: 'Desert Warriors',  percent: 7.5, logo: 'https://i.postimg.cc/rzXcqvPG/Desert-Warriors.png' },
-    { name: 'ENBD Eagles',      percent: 4.7, logo: 'https://i.postimg.cc/gJxnjbgL/ENBD-Eagles-Logo-Design.png' },
-    { name: 'TwinForce',        percent: 10.5, logo: 'https://i.postimg.cc/2ST6xStP/Twin-Force.png' }
-  ];
+/* ---------- Logos ---------- */
+const LOGO={
+  'Capital Chargers':'https://i.postimg.cc/d0mhp9Lt/Capital-Chargers-Logo-with-Mosque-Emblem-1.png',
+  'Desert Warriors':'https://i.postimg.cc/rzXcqvPG/Desert-Warriors.png',
+  'ENBD Eagles':'https://i.postimg.cc/gJxnjbgL/ENBD-Eagles-Logo-Design.png',
+  'TwinForce':'https://i.postimg.cc/2ST6xStP/Twin-Force.png'
+};
 
-  // --- Sort descending by % ---
-  const sorted = [...teams].sort((a,b)=>b.percent - a.percent || a.name.localeCompare(b.name));
+/* ---------- Your data (only the dates you want) ---------- */
+const data = {
+  3:{'Capital Chargers':2.3,'Desert Warriors':0.7,'ENBD Eagles':1.5,'TwinForce':4.9},
+  4:{'Capital Chargers':3.2,'Desert Warriors':4.1,'ENBD Eagles':4.4,'TwinForce':7.2},
+  5:{'Capital Chargers':7.7,'Desert Warriors':7.5,'ENBD Eagles':4.7,'TwinForce':10.5},
+  6:{'Capital Chargers':0,'Desert Warriors':0,'ENBD Eagles':0,'TwinForce':0},
+  7:{'Capital Chargers':0,'Desert Warriors':0,'ENBD Eagles':0,'TwinForce':0},
+  8:{'Capital Chargers':0,'Desert Warriors':0,'ENBD Eagles':0,'TwinForce':0},
+  10:{'Capital Chargers':0,'Desert Warriors':0,'ENBD Eagles':0,'TwinForce':0},
+  11:{'Capital Chargers':0,'Desert Warriors':0,'ENBD Eagles':0,'TwinForce':0},
+  12:{'Capital Chargers':0,'Desert Warriors':0,'ENBD Eagles':0,'TwinForce':0},
+  13:{'Capital Chargers':0,'Desert Warriors':0,'ENBD Eagles':0,'TwinForce':0},
+  14:{'Capital Chargers':0,'Desert Warriors':0,'ENBD Eagles':0,'TwinForce':0},
+  15:{'Capital Chargers':0,'Desert Warriors':0,'ENBD Eagles':0,'TwinForce':0},
+  17:{'Capital Chargers':0,'Desert Warriors':0,'ENBD Eagles':0,'TwinForce':0},
+  18:{'Capital Chargers':0,'Desert Warriors':0,'ENBD Eagles':0,'TwinForce':0},
+  19:{'Capital Chargers':0,'Desert Warriors':0,'ENBD Eagles':0,'TwinForce':0},
+  20:{'Capital Chargers':0,'Desert Warriors':0,'ENBD Eagles':0,'TwinForce':0},
+  21:{'Capital Chargers':0,'Desert Warriors':0,'ENBD Eagles':0,'TwinForce':0},
+  22:{'Capital Chargers':0,'Desert Warriors':0,'ENBD Eagles':0,'TwinForce':0},
+  24:{'Capital Chargers':0,'Desert Warriors':0,'ENBD Eagles':0,'TwinForce':0},
+  25:{'Capital Chargers':0,'Desert Warriors':0,'ENBD Eagles':0,'TwinForce':0},
+  26:{'Capital Chargers':0,'Desert Warriors':0,'ENBD Eagles':0,'TwinForce':0},
+  27:{'Capital Chargers':0,'Desert Warriors':0,'ENBD Eagles':0,'TwinForce':0},
+  28:{'Capital Chargers':0,'Desert Warriors':0,'ENBD Eagles':0,'TwinForce':0},
+  29:{'Capital Chargers':0,'Desert Warriors':0,'ENBD Eagles':0,'TwinForce':0}
+};
 
-  // --- Divider logic between rank 2 and 3 ---
-  const cutRankIndex = 1;
-  const cutPercent = sorted[cutRankIndex]?.percent ?? null;
-  let dividerAfterIndex = cutRankIndex;
-  for(let i=cutRankIndex+1;i<sorted.length;i++){
-    if(sorted[i].percent===cutPercent) dividerAfterIndex=i;
-    else break;
-  }
-  const borderRowIndex = dividerAfterIndex + 1;
+/* ---------- Rendering helpers ---------- */
+function fmt(n){ return (Math.round(n*10)/10).toFixed(1) + '%'; }
+function sortEntries(obj){
+  return Object.entries(obj||{})
+    .map(([team,percent])=>({team,percent:+percent||0}))
+    .sort((a,b)=> b.percent - a.percent || a.team.localeCompare(b.team));
+}
+function dividerAfterIndex(sorted){
+  if(!sorted.length) return 0;
+  const cut = Math.min(1, sorted.length-1); // after rank 2 (0-based)
+  const val = sorted[cut]?.percent ?? null;
+  let idx = cut;
+  for(let i=cut+1;i<sorted.length;i++){ if(sorted[i].percent===val) idx=i; else break; }
+  return idx + 1; // first row of lower group gets border
+}
 
-  // --- Render rows ---
-  const rows=document.getElementById('rows');
-  sorted.forEach((t,i)=>{
-    const tr=document.createElement('tr');
-    if(i===borderRowIndex && i<sorted.length) tr.classList.add('after-divider');
-    tr.innerHTML=`
-      <td>
-        <div class="team">
-          <img src="${t.logo}" alt="${t.name} logo">
-          <div>${t.name}
-            <div class="barWrap"><div class="bar" style="width:${Math.min(t.percent,100)}%"></div></div>
-          </div>
-        </div>
-      </td>
-      <td>${t.percent}%</td>`;
-    rows.appendChild(tr);
-  });
+/* ---------- Build the grid (only show days with any non-zero values) ---------- */
+const grid=document.getElementById('grid');
+
+/* sort dates ascending; change to .sort((a,b)=>b-a) for latest-first */
+Object.keys(data).map(Number).sort((a,b)=>a-b).forEach(d=>{
+  const rows = sortEntries(data[d]);
+  const allZero = rows.every(r => r.percent === 0);
+  if (allZero) return; // hide empty day
+
+  const cutAt = dividerAfterIndex(rows);
+  const top = rows[0] || {team:'', percent:0};
+
+  const box=document.createElement('div');
+  box.className='box';
+  box.innerHTML=`
+    <header>
+      <div class="date">Nov ${d}</div>
+      <div class="summary">${top.team ? `${top.team}: ${fmt(top.percent)}` : '&nbsp;'}</div>
+    </header>
+    <table aria-label="Leaderboard for Nov ${d}">
+      <tbody>
+        ${rows.map((r,i)=>`
+          <tr ${i===cutAt && i<rows.length ? 'class="after-divider"' : ''}>
+            <td>
+              <div class="team">
+                <img src="${LOGO[r.team]}" alt="${r.team} logo">
+                ${r.team}
+              </div>
+            </td>
+            <td class="pct">${fmt(r.percent)}</td>
+          </tr>`).join('')}
+      </tbody>
+    </table>`;
+  grid.appendChild(box);
+});
 </script>
 </body>
 </html>

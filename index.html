@@ -3,9 +3,9 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>November Knockout — Date-wise Dashboard</title>
+<title>November Knockout — Dashboard</title>
 <style>
-  :root{ --gold:#e4b229; --deep:#0a2142; --mid:#0e3769; --ink:#0b1b32; }
+  :root{ --gold:#e4b229; --deep:#0a2142; --mid:#0e3769; --ink:#0b1b32; --card:rgba(255,255,255,.06); --stroke:rgba(255,255,255,.18); }
 
   html, body{
     height:100%; margin:0;
@@ -24,34 +24,42 @@
   .title{font-size:48px;font-weight:900;letter-spacing:.06em;text-transform:uppercase;color:var(--gold);text-align:center;margin:0 0 6px}
   .subtitle{opacity:.9;text-align:center;margin:0 0 18px}
 
-  /* Chart card */
+  /* Tabs */
+  .tabs{display:flex;gap:8px;justify-content:center;margin-bottom:16px;flex-wrap:wrap}
+  .tab{
+    background:var(--card); border:1px solid var(--stroke); color:#eaf2ff;
+    padding:10px 14px; border-radius:999px; cursor:pointer; user-select:none;
+  }
+  .tab[aria-selected="true"]{ background:#163a6b; border-color:#1f4f91; font-weight:800 }
+
+  /* Cards & chart containers */
+  .panel{ display:none }
+  .panel.active{ display:block }
+
   .chartCard{
-    background:rgba(255,255,255,.06);
-    border:1px solid rgba(255,255,255,.18);
-    border-radius:16px;
-    padding:16px;
-    margin-bottom:22px;
+    background:var(--card); border:1px solid var(--stroke);
+    border-radius:16px; padding:16px; margin-bottom:22px;
     backdrop-filter:saturate(120%) blur(4px);
   }
 
   .grid{
-    display:grid;
-    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-    gap:22px;
+    display:grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap:22px; align-items:start;
   }
   .box{
-    background:rgba(255,255,255,.06);
-    border:1px solid rgba(255,255,255,.18);
-    border-radius:16px;
-    padding:14px;
-    backdrop-filter:saturate(120%) blur(4px);
+    background:var(--card); border:1px solid var(--stroke);
+    border-radius:16px; padding:0; backdrop-filter:saturate(120%) blur(4px);
   }
-  .box header{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px}
+  .box header{
+    padding:12px 16px; display:flex; justify-content:space-between; align-items:center;
+    border-bottom:1px solid rgba(255,255,255,.12); background:#0e325e;
+    border-top-left-radius:16px; border-top-right-radius:16px;
+  }
   .date{font-weight:900;font-size:18px}
-  .summary{color:#e7edf7;font-size:12px}
+  .summary{color:#e7edf7;font-size:12px;opacity:.9}
 
-  table{width:100%;border-collapse:separate;border-spacing:0;background:#fff;border-radius:12px;overflow:hidden;border:1px solid #e6edf6}
-  tbody td{padding:12px 14px;vertical-align:middle;border-top:1px solid #eef2f7}
+  table{width:100%;border-collapse:separate;border-spacing:0;background:#fff;border-radius:0 0 16px 16px;overflow:hidden}
+  tbody td{padding:14px 16px;vertical-align:middle;border-top:1px solid #eef2f7}
   tbody tr:first-child td{border-top:none}
   tbody tr:nth-child(even){background:#f8fbff}
 
@@ -70,13 +78,23 @@
     <div class="title">November Knockout</div>
     <div class="subtitle">Date-wise tracker for November 2025</div>
 
-    <!-- Chart -->
-    <div class="chartCard">
-      <canvas id="progressChart" height="120"></canvas>
+    <!-- Tabs -->
+    <div class="tabs" role="tablist" aria-label="Dashboard sections">
+      <button class="tab" role="tab" id="tab-overview" aria-controls="panel-overview" aria-selected="true">Overview</button>
+      <button class="tab" role="tab" id="tab-results" aria-controls="panel-results" aria-selected="false">Results</button>
     </div>
 
-    <!-- Cards -->
-    <div id="grid" class="grid"></div>
+    <!-- Overview: Chart -->
+    <section id="panel-overview" class="panel active" role="tabpanel" aria-labelledby="tab-overview">
+      <div class="chartCard">
+        <canvas id="progressChart" height="140"></canvas>
+      </div>
+    </section>
+
+    <!-- Results: Date-wise cards -->
+    <section id="panel-results" class="panel" role="tabpanel" aria-labelledby="tab-results">
+      <div id="grid" class="grid"></div>
+    </section>
 
     <div class="footer-note">
       Note: The figures are sourced from the coordinator's MIS; final results will be reconciled.
@@ -131,95 +149,104 @@ function sortEntries(obj){
 }
 function dividerAfterIndex(sorted){
   if(!sorted.length) return 0;
-  const cut = Math.min(1, sorted.length-1);
+  const cut = Math.min(1, sorted.length-1); // after rank 2
   const val = sorted[cut]?.percent ?? null;
   let idx = cut;
   for(let i=cut+1;i<sorted.length;i++){ if(sorted[i].percent===val) idx=i; else break; }
   return idx + 1;
 }
 
-/* ---------- Build list of visible days (any non-zero) ---------- */
+/* ---------- Visible days (any non-zero) ---------- */
 const visibleDays = Object.keys(data).map(Number).sort((a,b)=>a-b)
   .filter(d => sortEntries(data[d]).some(r => r.percent !== 0));
 
-/* ---------- Chart data ---------- */
-const teams = ['Capital Chargers','Desert Warriors','ENBD Eagles','TwinForce'];
-const series = teams.map(team => ({
-  label: team,
-  data: visibleDays.map(d => (data[d]?.[team] ?? 0)),
-}));
+/* ---------- Chart (Overview tab) ---------- */
+(function renderChart(){
+  const teams = ['Capital Chargers','Desert Warriors','ENBD Eagles','TwinForce'];
+  const series = teams.map(team => ({
+    label: team,
+    data: visibleDays.map(d => (data[d]?.[team] ?? 0))
+  }));
+  // Time elapsed calc (today/30)
+  const now = new Date();
+  let todayDay = (now.getFullYear()===2025 && now.getMonth()===10) ? now.getDate() : (visibleDays.at(-1) || 1);
+  todayDay = Math.min(30, Math.max(1, todayDay));
+  const timeElapsedPct = +(todayDay / 30 * 100).toFixed(2);
 
-/* Time elapsed % (today/30). If not November 2025, we’ll use the max visible day. */
-const now = new Date();
-let todayDay = (now.getFullYear()===2025 && now.getMonth()===10) ? now.getDate() : (visibleDays.at(-1) || 1);
-todayDay = Math.min(30, Math.max(1, todayDay));
-const timeElapsedPct = +(todayDay / 30 * 100).toFixed(2);
-
-/* ---------- Render Chart ---------- */
-const ctx = document.getElementById('progressChart').getContext('2d');
-new Chart(ctx, {
-  type: 'line',
-  data: {
-    labels: visibleDays.map(d => `Nov ${d}`),
-    datasets: [
-      // teams
-      { label: series[0].label, data: series[0].data, borderWidth: 3, tension: 0.25, pointRadius: 3 },
-      { label: series[1].label, data: series[1].data, borderWidth: 3, tension: 0.25, pointRadius: 3 },
-      { label: series[2].label, data: series[2].data, borderWidth: 3, tension: 0.25, pointRadius: 3 },
-      { label: series[3].label, data: series[3].data, borderWidth: 3, tension: 0.25, pointRadius: 3 },
-      // target 100% line
-      { label: 'Target (100%)', data: visibleDays.map(()=>100), borderWidth: 2, borderDash: [6,6], pointRadius: 0 },
-      // time elapsed line
-      { label: `Time Elapsed (${timeElapsedPct}%)`, data: visibleDays.map(()=>timeElapsedPct), borderWidth: 2, borderDash: [2,4], pointRadius: 0 }
-    ]
-  },
-  options: {
-    responsive: true,
-    maintainAspectRatio: false,
-    scales: {
-      y: {
-        title: { display: true, text: '% Achievement' },
-        min: 0, max: 100, ticks: { callback: v => v + '%' }
+  const ctx = document.getElementById('progressChart').getContext('2d');
+  new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: visibleDays.map(d => `Nov ${d}`),
+      datasets: [
+        { label: series[0].label, data: series[0].data, borderWidth: 3, tension: .25, pointRadius: 2 },
+        { label: series[1].label, data: series[1].data, borderWidth: 3, tension: .25, pointRadius: 2 },
+        { label: series[2].label, data: series[2].data, borderWidth: 3, tension: .25, pointRadius: 2 },
+        { label: series[3].label, data: series[3].data, borderWidth: 3, tension: .25, pointRadius: 2 },
+        { label: 'Target (100%)', data: visibleDays.map(()=>100), borderWidth: 2, borderDash: [6,6], pointRadius: 0 },
+        { label: `Time Elapsed (${timeElapsedPct}%)`, data: visibleDays.map(()=>timeElapsedPct), borderWidth: 2, borderDash: [2,4], pointRadius: 0 }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      scales: {
+        y: { title: {display:true, text:'% Achievement'}, min:0, max:100, ticks:{ callback: v => v + '%' }},
+        x: { title: {display:true, text:'Date'} }
       },
-      x: { title: { display: true, text: 'Date' } }
-    },
-    plugins: {
-      legend: { position: 'top' },
-      tooltip: { callbacks: { label: (ctx) => `${ctx.dataset.label}: ${fmt(ctx.parsed.y||0)}` } }
-    },
-    elements: { line: { fill: false } }
-  }
-});
+      plugins: {
+        legend: { position: 'top' },
+        tooltip: { callbacks: { label: (ctx) => `${ctx.dataset.label}: ${fmt(ctx.parsed.y||0)}` } }
+      },
+      elements: { line: { fill:false } }
+    }
+  });
+})();
 
-/* ---------- Cards (only visible days) ---------- */
-const grid=document.getElementById('grid');
-visibleDays.forEach(d=>{
-  const rows = sortEntries(data[d]);
-  const cutAt = dividerAfterIndex(rows);
-  const top = rows[0] || {team:'', percent:0};
+/* ---------- Results cards ---------- */
+(function renderCards(){
+  const grid=document.getElementById('grid');
+  visibleDays.forEach(d=>{
+    const rows = sortEntries(data[d]);
+    const cutAt = dividerAfterIndex(rows);
+    const top = rows[0] || {team:'', percent:0};
 
-  const box=document.createElement('div');
-  box.className='box';
-  box.innerHTML=`
-    <header>
-      <div class="date">Nov ${d}</div>
-      <div class="summary">${top.team ? `${top.team}: ${fmt(top.percent)}` : '&nbsp;'}</div>
-    </header>
-    <table aria-label="Leaderboard for Nov ${d}">
-      <tbody>
-        ${rows.map((r,i)=>`
-          <tr ${i===cutAt && i<rows.length ? 'class="after-divider"' : ''}>
-            <td>
-              <div class="team">
-                <img src="${LOGO[r.team]}" alt="${r.team} logo">
-                ${r.team}
-              </div>
-            </td>
-            <td class="pct">${fmt(r.percent)}</td>
-          </tr>`).join('')}
-      </tbody>
-    </table>`;
-  grid.appendChild(box);
+    const box=document.createElement('div');
+    box.className='box';
+    box.innerHTML=`
+      <header>
+        <div class="date">Nov ${d}</div>
+        <div class="summary">${top.team ? `${top.team}: ${fmt(top.percent)}` : '&nbsp;'}</div>
+      </header>
+      <table aria-label="Leaderboard for Nov ${d}">
+        <tbody>
+          ${rows.map((r,i)=>`
+            <tr ${i===cutAt && i<rows.length ? 'class="after-divider"' : ''}>
+              <td>
+                <div class="team">
+                  <img src="${LOGO[r.team]}" alt="${r.team} logo">
+                  ${r.team}
+                </div>
+              </td>
+              <td class="pct">${fmt(r.percent)}</td>
+            </tr>`).join('')}
+        </tbody>
+      </table>`;
+    grid.appendChild(box);
+  });
+})();
+
+/* ---------- Tab switching ---------- */
+const tabs = document.querySelectorAll('.tab');
+const panels = document.querySelectorAll('.panel');
+tabs.forEach(tab=>{
+  tab.addEventListener('click', ()=>{
+    tabs.forEach(t => t.setAttribute('aria-selected','false'));
+    panels.forEach(p => p.classList.remove('active'));
+    tab.setAttribute('aria-selected','true');
+    document.getElementById(tab.getAttribute('aria-controls')).classList.add('active');
+    // Optionally scroll to top on switch:
+    window.scrollTo({top:0, behavior:'smooth'});
+  });
 });
 </script>
 </body>

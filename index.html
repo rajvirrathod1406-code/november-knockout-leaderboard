@@ -71,11 +71,23 @@
     .wrap{padding:16px}
     .title{font-size:28px; margin-bottom:2px}
     .subtitle{font-size:13px}
-    .legendBar{justify-content:flex-start}
-    .legendItem{font-size:12px; padding:5px 8px}
-    .legendImg{width:18px;height:18px}
-    .legendSwatch{width:14px;height:3px}
-    .chartCard{height: 72vh}
+    /* Legend compresses & becomes a horizontal scroller */
+    .legendBar{
+      justify-content:flex-start;
+      gap:8px;
+      overflow-x:auto;
+      white-space:nowrap;
+      scrollbar-width:thin;
+      -webkit-overflow-scrolling:touch;
+      padding-bottom:4px;
+      margin:0 0 8px;
+    }
+    .legendItem{font-size:11px; padding:4px 6px}
+    .legendImg{width:16px;height:16px}
+    .legendSwatch{width:12px;height:3px}
+    /* Chart is taller; less top/bottom padding */
+    .chartCard{height:78vh; padding:12px}
+    .chartCard canvas{height:calc(100% - 52px) !important}
     .grid{grid-template-columns:1fr}
     .team{font-size:16px}
   }
@@ -160,7 +172,6 @@ function buildLegend(container, teamOrder, refs){
 /* ---- Plugin: team end labels + single Daily Target label ---- */
 const endLabelPlugin = {
   id: 'endLabelPlugin',
-
   afterDatasetsDraw(chart){
     const {ctx, chartArea} = chart;
     ctx.save();
@@ -198,7 +209,6 @@ const endLabelPlugin = {
     });
     ctx.restore();
   },
-
   afterDraw(chart){
     const {ctx, chartArea, scales} = chart;
     const daily = chart.data.datasets.find(d => d.label.startsWith('Daily Target'));
@@ -279,7 +289,8 @@ const endLabelPlugin = {
           grid: { color: 'rgba(255,255,255,0.12)' },
           ticks: {
             callback: v => v + '%',
-            font: { size: isSmall ? 10 : 12 }
+            font: { size: isSmall ? 10 : 12 },
+            maxTicksLimit: isSmall ? 6 : 10
           },
           title: { display: !isSmall, text: '% Achievement (Teams)' }
         },
@@ -288,7 +299,7 @@ const endLabelPlugin = {
           grid: { display: false },
           ticks: { callback: v => v + '%', font: { size: isSmall ? 10 : 12 } },
           title: { display: !isSmall, text: 'Reference (0–100%)' },
-          display: !isSmall   /* hide the right axis on phones */
+          display: !isSmall
         },
         x: {
           grid: { color: 'rgba(255,255,255,0.06)' },
